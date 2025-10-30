@@ -1,4 +1,5 @@
-# English Learning Assistant - GigaChat
+# English Learning Assistant - l1
+
 
 Приложение для изучения английского языка с помощью искусственного интеллекта GigaChat.
 
