@@ -1,10 +1,24 @@
-// GigaChat API Service
-// Расширенный сервис для работы с GigaChat API
+// GigaChat API Service - Real Integration
+import axios from 'axios'
 
 class GigaChatService {
   constructor() {
-    this.apiKey = import.meta.env.VITE_GIGACHAT_API_KEY || 'demo-key-for-development'
-    this.baseUrl = 'https://gigachat.devices.sberbank.ru/api/v1'
+    // API Configuration from environment variables
+    this.clientId = import.meta.env.VITE_GIGACHAT_CLIENT_ID
+    this.clientSecret = import.meta.env.VITE_GIGACHAT_CLIENT_SECRET
+    this.authToken = import.meta.env.VITE_GIGACHAT_AUTH_TOKEN
+    this.scope = import.meta.env.VITE_GIGACHAT_SCOPE || 'GIGACHAT_API_PERS'
+    
+    // API URLs - use proxy in development to avoid CORS and SSL issues
+    const isDev = import.meta.env.DEV
+    this.authUrl = isDev ? '/api/auth' : (import.meta.env.VITE_GIGACHAT_AUTH_URL || 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth')
+    this.apiUrl = isDev ? '/api/gigachat' : (import.meta.env.VITE_GIGACHAT_API_URL || 'https://gigachat.devices.sberbank.ru/api/v1')
+    
+    // Token management
+    this.accessToken = null
+    this.tokenExpiry = null
+    
+    // Conversation state
     this.conversationHistory = []
     this.userContext = {
       level: 'beginner',
@@ -12,22 +26,105 @@ class GigaChatService {
       learningGoals: [],
       weakAreas: []
     }
+    
+    // Check if API is configured
+    this.isConfigured = !!(this.authToken || (this.clientId && this.clientSecret))
+    
+    if (!this.isConfigured) {
+      console.warn('GigaChat API credentials not configured. Using demo mode.')
+    }
   }
 
-  // Метод для отправки сообщения в GigaChat
+  // ==================== OAuth Authentication ====================
+
+  async authenticate() {
+    try {
+      if (!this.isConfigured) {
+        throw new Error('API credentials not configured')
+      }
+
+      // Check if token is still valid
+      if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
+        return this.accessToken
+      }
+
+      console.log('Authenticating with GigaChat API...')
+
+      // Prepare authentication request
+      const authData = new URLSearchParams()
+      authData.append('scope', this.scope)
+
+      const config = {
+        method: 'POST',
+        url: this.authUrl,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+          'RqUID': this.generateRqUID(),
+          'Authorization': `Basic ${this.authToken}`
+        },
+        data: authData
+      }
+
+      const response = await axios(config)
+
+      if (response.data && response.data.access_token) {
+        this.accessToken = response.data.access_token
+        // Set token expiry (usually 30 minutes, subtract 1 minute for safety)
+        const expiresIn = (response.data.expires_at || 1800) * 1000
+        this.tokenExpiry = Date.now() + expiresIn - 60000
+        
+        console.log('✅ GigaChat authentication successful')
+        return this.accessToken
+      } else {
+        throw new Error('Invalid authentication response')
+      }
+    } catch (error) {
+      console.error('GigaChat authentication error:', error)
+      
+      if (error.response) {
+        console.error('Response data:', error.response.data)
+        console.error('Response status:', error.response.status)
+      }
+      
+      // Fall back to demo mode on auth error
+      this.isConfigured = false
+      throw new Error('Authentication failed. Using demo mode.')
+    }
+  }
+
+  // Generate unique request ID
+  generateRqUID() {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  // ==================== Main API Methods ====================
+
   async sendMessage(message, context = 'english-learning') {
     try {
-      // Добавляем сообщение в историю
+      // Add message to history
       this.conversationHistory.push({
         role: 'user',
         content: message,
         timestamp: new Date()
       })
 
-      // В реальном проекте здесь будет настоящий API вызов
-      const response = await this.simulateGigaChatResponse(message, context)
-      
-      // Добавляем ответ в историю
+      let response
+
+      // Try real API if configured
+      if (this.isConfigured) {
+        try {
+          response = await this.sendToGigaChatAPI(message, context)
+        } catch (apiError) {
+          console.error('API call failed, falling back to demo mode:', apiError)
+          response = await this.simulateGigaChatResponse(message, context)
+        }
+      } else {
+        // Use demo mode
+        response = await this.simulateGigaChatResponse(message, context)
+      }
+
+      // Add response to history
       this.conversationHistory.push({
         role: 'assistant',
         content: response,
@@ -41,7 +138,124 @@ class GigaChatService {
     }
   }
 
-  // Улучшенная имитация ответа GigaChat
+  async sendToGigaChatAPI(message, context) {
+    try {
+      // Ensure we have a valid token
+      await this.authenticate()
+
+      // Prepare system message based on context
+      const systemMessage = this.getSystemMessage(context)
+
+      // Prepare messages for API
+      const messages = [
+        {
+          role: 'system',
+          content: systemMessage
+        },
+        // Include conversation history (last 10 messages for context)
+        ...this.conversationHistory.slice(-10).map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
+      ]
+
+      // API request configuration
+      const config = {
+        method: 'POST',
+        url: `${this.apiUrl}/chat/completions`,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${this.accessToken}`
+        },
+        data: {
+          model: 'GigaChat',
+          messages: messages,
+          temperature: 0.7,
+          top_p: 0.9,
+          n: 1,
+          stream: false,
+          max_tokens: 1024,
+          repetition_penalty: 1.1,
+          update_interval: 0
+        }
+      }
+
+      const response = await axios(config)
+
+      if (response.data && response.data.choices && response.data.choices[0]) {
+        return response.data.choices[0].message.content
+      } else {
+        throw new Error('Invalid API response format')
+      }
+    } catch (error) {
+      console.error('GigaChat API request error:', error)
+      
+      if (error.response) {
+        console.error('Response status:', error.response.status)
+        console.error('Response data:', error.response.data)
+        
+        // If token expired, try to re-authenticate
+        if (error.response.status === 401) {
+          this.accessToken = null
+          this.tokenExpiry = null
+          throw new Error('Token expired, please retry')
+        }
+      }
+      
+      throw error
+    }
+  }
+
+  getSystemMessage(context) {
+    const systemMessages = {
+      'english-learning': `You are a professional English language teacher and assistant. Your role is to:
+- Help students learn English through conversation
+- Explain grammar rules clearly and with examples
+- Correct mistakes gently and constructively
+- Provide translations between Russian and English
+- Suggest better ways to express ideas
+- Give pronunciation tips
+- Be patient, encouraging, and supportive
+- Adapt your level to the student's proficiency
+
+Always respond in a friendly, educational manner. Mix English and Russian when helpful for understanding.`,
+
+      'grammar': `You are an English grammar expert. Focus on:
+- Explaining grammar rules clearly
+- Providing multiple examples
+- Comparing with Russian grammar when useful
+- Highlighting common mistakes
+- Giving practical exercises
+- Being detailed but not overwhelming`,
+
+      'vocabulary': `You are a vocabulary expert. Help students:
+- Learn new words with context
+- Understand word usage and collocations
+- Remember words through associations
+- Expand their vocabulary systematically
+- Use words in natural sentences`,
+
+      'pronunciation': `You are a pronunciation coach. Help with:
+- Breaking down word sounds
+- Explaining phonetic patterns
+- Comparing with Russian sounds
+- Giving practical pronunciation tips
+- Building confidence in speaking`,
+
+      'conversation': `You are a friendly conversation partner. Your goals:
+- Have natural English conversations
+- Gently correct mistakes
+- Ask follow-up questions
+- Encourage the student to speak more
+- Make learning fun and engaging`
+    }
+
+    return systemMessages[context] || systemMessages['english-learning']
+  }
+
+  // ==================== Demo Mode (Fallback) ====================
+
   async simulateGigaChatResponse(message, context) {
     // Имитация задержки API
     await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200))
@@ -60,7 +274,7 @@ class GigaChatService {
   getAdvancedEnglishLearningResponse(message) {
     const responses = {
       // Приветствие
-      'привет': "Hello! I'm your English learning assistant. I can help you with grammar, vocabulary, pronunciation, and conversation practice. What would you like to work on today?",
+      'привет': "Hello! I'm your English learning assistant powered by GigaChat AI. I can help you with grammar, vocabulary, pronunciation, and conversation practice. What would you like to work on today?",
       'hello': "Hello! Great to see you practicing English! I'm here to help you improve your language skills. What specific area would you like to focus on?",
       
       // Перевод
@@ -99,11 +313,8 @@ class GigaChatService {
       
       // Специальные запросы
       'как дела': "I'm doing great, thank you for asking! How are you doing? In English, we often say 'How are you?' or 'How's it going?'",
-      'как тебя зовут': "My name is GigaChat Assistant! I'm your English learning companion. What's your name?",
-      'помоги': "I'm here to help! What specific aspect of English would you like assistance with? Grammar, vocabulary, pronunciation, or conversation?",
-      'объясни': "I'd be happy to explain! What would you like me to clarify? A grammar rule, word meaning, or something else?",
-      'пример': "Sure! I can provide examples. What concept would you like me to illustrate with examples?",
-      'упражнение': "Great idea! Let's do some exercises. What type of practice would you like? Grammar exercises, vocabulary practice, or conversation practice?"
+      'help': "I'm here to help you learn English! I can assist with:\n- Grammar explanations\n- Vocabulary building\n- Translation\n- Pronunciation practice\n- Conversation practice\n- Writing tips\n\nWhat would you like to work on?",
+      'помоги': "Я здесь, чтобы помочь! С чем конкретно вам нужна помощь? Грамматика, словарный запас, произношение или разговорная практика?",
     }
 
     // Поиск подходящего ответа
@@ -115,7 +326,7 @@ class GigaChatService {
 
     // Если сообщение содержит английские слова, отвечаем на английском
     if (/[a-zA-Z]/.test(message)) {
-      return `That's interesting! "${message}" - let me help you with that. Could you tell me more about what you'd like to learn or practice in English? I can help with grammar, vocabulary, or conversation.`
+      return `That's interesting! "${message}" - let me help you with that. Could you tell me more about what you'd like to learn or practice in English? I can help with grammar, vocabulary, pronunciation, or conversation.`
     }
 
     // Общий ответ на русском
@@ -134,7 +345,8 @@ class GigaChatService {
     return generalResponses[Math.floor(Math.random() * generalResponses.length)]
   }
 
-  // Метод для получения объяснения грамматического правила
+  // ==================== Grammar Explanation ====================
+
   async explainGrammar(rule) {
     const grammarRules = {
       'present simple': {
@@ -189,15 +401,26 @@ Questions: ${ruleData.questions}`
     return `I'd be happy to explain ${rule}! Could you be more specific about what aspect you'd like to understand?`
   }
 
-  // Метод для перевода текста
+  // ==================== Translation ====================
+
   async translateText(text, fromLang = 'auto', toLang = 'en') {
-    // В реальном проекте здесь будет интеграция с переводческим API
+    // If API is configured, try to use it for translation
+    if (this.isConfigured) {
+      try {
+        const prompt = `Translate the following text from ${fromLang === 'auto' ? 'detected language' : fromLang} to ${toLang}: "${text}". Provide only the translation without explanations.`
+        return await this.sendToGigaChatAPI(prompt, 'translation')
+      } catch (error) {
+        console.error('Translation API error:', error)
+      }
+    }
+
+    // Fallback to simple dictionary
     const translations = {
       'привет': 'hello',
       'как дела': 'how are you',
       'спасибо': 'thank you',
-      'пожалуйста': 'please',
-      'извините': 'sorry',
+      'пожалуйста': 'please / you\'re welcome',
+      'извините': 'sorry / excuse me',
       'hello': 'привет',
       'how are you': 'как дела',
       'thank you': 'спасибо',
@@ -209,17 +432,18 @@ Questions: ${ruleData.questions}`
     return translations[lowerText] || `Translation of "${text}" would be provided by the translation service.`
   }
 
-  // Метод для проверки правильности предложения
+  // ==================== Grammar Check ====================
+
   async checkGrammar(sentence) {
-    // Простая проверка грамматики (в реальном проекте будет более сложная логика)
+    // Simple grammar check (in real app would use API)
     const suggestions = []
     
-    // Проверка на заглавную букву в начале
+    // Check for capital letter at start
     if (sentence[0] !== sentence[0].toUpperCase()) {
       suggestions.push('Start the sentence with a capital letter.')
     }
 
-    // Проверка на точку в конце
+    // Check for punctuation at end
     if (!sentence.endsWith('.') && !sentence.endsWith('!') && !sentence.endsWith('?')) {
       suggestions.push('End the sentence with proper punctuation.')
     }
@@ -233,29 +457,8 @@ Questions: ${ruleData.questions}`
     }
   }
 
-  // Новые методы для расширенной функциональности
+  // ==================== Exercise Generation ====================
 
-  // Получение истории разговора
-  getConversationHistory() {
-    return this.conversationHistory
-  }
-
-  // Очистка истории
-  clearHistory() {
-    this.conversationHistory = []
-  }
-
-  // Обновление контекста пользователя
-  updateUserContext(context) {
-    this.userContext = { ...this.userContext, ...context }
-  }
-
-  // Получение контекста пользователя
-  getUserContext() {
-    return this.userContext
-  }
-
-  // Генерация упражнений
   async generateExercise(type, level = 'beginner') {
     const exercises = {
       grammar: {
@@ -302,7 +505,8 @@ Questions: ${ruleData.questions}`
     return null
   }
 
-  // Анализ текста на сложность
+  // ==================== Text Analysis ====================
+
   analyzeTextComplexity(text) {
     const words = text.split(' ')
     const sentences = text.split(/[.!?]+/).filter(s => s.trim())
@@ -324,6 +528,37 @@ Questions: ${ruleData.questions}`
       complexityRatio: Math.round(complexityRatio * 100),
       wordCount: words.length,
       sentenceCount: sentences.length
+    }
+  }
+
+  // ==================== Utility Methods ====================
+
+  getConversationHistory() {
+    return this.conversationHistory
+  }
+
+  clearHistory() {
+    this.conversationHistory = []
+  }
+
+  updateUserContext(context) {
+    this.userContext = { ...this.userContext, ...context }
+  }
+
+  getUserContext() {
+    return this.userContext
+  }
+
+  isApiConfigured() {
+    return this.isConfigured
+  }
+
+  getApiStatus() {
+    return {
+      configured: this.isConfigured,
+      authenticated: !!this.accessToken,
+      tokenValid: this.tokenExpiry && Date.now() < this.tokenExpiry,
+      mode: this.isConfigured ? 'API' : 'Demo'
     }
   }
 }
