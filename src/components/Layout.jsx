@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts.jsx'
+import ApiStatus from './ApiStatus'
 import { 
   Brain,
   Sun,
@@ -31,6 +33,9 @@ const Layout = ({ children }) => {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMobileNav, setShowMobileNav] = useState(false)
   const { user, logout, isAuthenticated } = useAuth()
+  
+  // Enable keyboard shortcuts
+  useKeyboardShortcuts(true)
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
@@ -240,6 +245,9 @@ const Layout = ({ children }) => {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
+
+      {/* API Status Indicator */}
+      <ApiStatus />
     </div>
   )
 }
