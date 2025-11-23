@@ -1,10 +1,49 @@
-@import './styles/design-system.css';
+/* @import './styles/design-system.css'; */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Primary Colors */
+    --primary-500: #3b82f6;
+    --primary-600: #2563eb;
+    --primary-700: #1d4ed8;
+    
+    /* Secondary Colors */
+    --secondary-500: #64748b;
+    --secondary-600: #475569;
+    
+    /* Text Colors */
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    
+    /* Background Colors */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f9fafb;
+    
+    /* Border */
+    --border-medium: #e5e7eb;
+    
+    /* Font */
+    --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
+    
+    /* Leading */
+    --leading-normal: 1.5;
+    
+    /* Radius */
+    --radius-full: 9999px;
+  }
+  
+  .dark {
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --bg-primary: #111827;
+    --bg-secondary: #1f2937;
+    --border-medium: #374151;
+  }
+
   html {
     font-family: var(--font-primary);
     color: var(--text-primary);
@@ -32,6 +71,33 @@
   *:focus-visible {
     outline: 2px solid var(--primary-500);
     outline-offset: 2px;
+  }
+
+  /* Keyboard shortcut badge */
+  kbd, .kbd {
+    @apply inline-flex items-center justify-center px-2 py-1 text-xs font-mono font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm;
+  }
+
+  /* High contrast mode */
+  .high-contrast {
+    --text-primary: #000000;
+    --text-secondary: #1a1a1a;
+    --border-medium: #000000;
+  }
+
+  .high-contrast.dark {
+    --text-primary: #ffffff;
+    --text-secondary: #e0e0e0;
+    --border-medium: #ffffff;
+  }
+
+  /* Large click targets */
+  .large-targets button,
+  .large-targets a,
+  .large-targets input,
+  .large-targets select {
+    min-height: 48px;
+    min-width: 48px;
   }
 
   /* Scrollbar styling */
@@ -68,7 +134,7 @@
   }
 
   .card-premium {
-    @apply bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-gray-600 p-6 transition-all duration-300 hover:shadow-2xl dark:hover:shadow-3xl hover:scale-105;
+    @apply bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-gray-600 p-6 transition-all duration-300 hover:shadow-2xl hover:scale-105;
   }
   
   .input-field {
@@ -104,19 +170,19 @@
   }
 
   .floating-card {
-    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-2xl dark:shadow-3xl border border-gray-100 dark:border-gray-700 p-6 transition-all duration-500 hover:shadow-3xl dark:hover:shadow-4xl hover:scale-105 hover:-translate-y-2;
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 p-6 transition-all duration-500 hover:shadow-2xl hover:scale-105 hover:-translate-y-2;
   }
 
   .hero-card {
-    @apply bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-3xl shadow-2xl dark:shadow-3xl border border-gray-200 dark:border-gray-600 p-8 transition-all duration-500 hover:shadow-3xl dark:hover:shadow-4xl hover:scale-105 hover:-translate-y-3;
+    @apply bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-600 p-8 transition-all duration-500 hover:shadow-2xl hover:scale-105 hover:-translate-y-3;
   }
 
   .feature-card {
-    @apply bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-gray-600 p-6 transition-all duration-500 hover:shadow-2xl dark:hover:shadow-3xl hover:scale-110 hover:-translate-y-2;
+    @apply bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-gray-600 p-6 transition-all duration-500 hover:shadow-2xl hover:scale-110 hover:-translate-y-2;
   }
 
   .stat-card {
-    @apply bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-600 p-6 transition-all duration-500 hover:shadow-2xl dark:hover:shadow-3xl hover:scale-110 hover:-translate-y-2;
+    @apply bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg dark:shadow-xl border border-gray-200 dark:border-gray-600 p-6 transition-all duration-500 hover:shadow-2xl hover:scale-110 hover:-translate-y-2;
   }
 
   .nav-item {
@@ -144,7 +210,7 @@
   }
 
   .modern-card {
-    @apply rounded-3xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-gray-600 p-6 transition-all duration-500 hover:shadow-2xl dark:hover:shadow-3xl hover:scale-110 hover:-translate-y-2;
+    @apply rounded-3xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-gray-600 p-6 transition-all duration-500 hover:shadow-2xl hover:scale-110 hover:-translate-y-2;
   }
 
   .glass-card {
