@@ -26,7 +26,8 @@ import {
   Award,
   TrendingUp,
   Bookmark,
-  PlayCircle
+  PlayCircle,
+  X
 } from 'lucide-react'
 
 const DuolingoNavigation = ({ 
@@ -78,6 +79,14 @@ const DuolingoNavigation = ({
           path: '/grammar',
           badge: null,
           description: 'Уроки и правила грамматики'
+        },
+        {
+          id: 'pronunciation',
+          label: 'Произношение',
+          icon: Brain,
+          path: '/pronunciation',
+          badge: 'new',
+          description: 'Практика произношения с AI'
         }
       ]
     },
@@ -120,6 +129,22 @@ const DuolingoNavigation = ({
           path: '/security',
           badge: null,
           description: 'Настройки безопасности'
+        },
+        {
+          id: 'accessibility',
+          label: 'Доступность',
+          icon: Settings,
+          path: '/accessibility',
+          badge: null,
+          description: 'Настройки доступности'
+        },
+        {
+          id: 'data',
+          label: 'Управление данными',
+          icon: Settings,
+          path: '/data-management',
+          badge: null,
+          description: 'Экспорт и импорт данных'
         }
       ]
     },
@@ -154,6 +179,14 @@ const DuolingoNavigation = ({
           path: '/achievements',
           badge: '3',
           description: 'Ваши награды и достижения'
+        },
+        {
+          id: 'gamification',
+          label: 'Геймификация',
+          icon: Target,
+          path: '/gamification',
+          badge: 'new',
+          description: 'Задания, серии и награды'
         }
       ]
     },
